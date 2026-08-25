@@ -1,0 +1,4 @@
+# dsh-shipcheck bundle layer: mount the evidence-first release checker.
+- insert:
+    - id: shipcheck
+      name: 'dsh-shipcheck'

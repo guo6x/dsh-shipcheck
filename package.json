@@ -1,0 +1,49 @@
+{
+  "name": "dsh-shipcheck",
+  "version": "0.1.0",
+  "description": "Evidence-first frontend release checks for DSH: real browser inspection, visual baselines, and reproducible reports.",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": { "default": "./lib/index.js" },
+    "./client": { "default": "./lib/client.js" },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "dsh.plugin.json",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "engines": { "node": ">=22" },
+  "dsh": {
+    "bundle": { "patch": "./cordis.patch.yml" },
+    "client": { "platform": "web", "inject": [], "immediately": false }
+  },
+  "dependencies": {
+    "dsh-pilot": "github:guo6x/dsh-pilot"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.12"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node build.mjs && node tests/core.mjs && node tests/plugin-contract.mjs && node tests/client-contract.mjs && pnpm pack --dry-run"
+  },
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "frontend",
+    "qa",
+    "visual-regression",
+    "release"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/guo6x/dsh-shipcheck.git"
+  }
+}
