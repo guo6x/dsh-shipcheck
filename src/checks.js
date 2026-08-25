@@ -20,13 +20,25 @@ function listOf(values, max = 20) {
   return values.filter(value => typeof value === 'string' && value.trim().length > 0).map(value => value.trim()).slice(0, max)
 }
 
+function recordList(values, max = 40) {
+  if (!Array.isArray(values)) return []
+  return values.filter(value => value && typeof value === 'object').slice(0, max).map(value => {
+    const record = {}
+    for (const key of ['source', 'type', 'message', 'url', 'method', 'status', 'status_text', 'line', 'column', 'error', 'resource_type']) {
+      if (value[key] === undefined || value[key] === null || value[key] === '') continue
+      record[key] = typeof value[key] === 'string' ? value[key].slice(0, 1000) : value[key]
+    }
+    return record
+  })
+}
+
 /**
  * Turn one real browser evaluation into a stable, serializable evidence record.
  * Dynamic body text is retained for humans but only its length/digest enters a
  * baseline, keeping the first version useful without pretending pixels are
  * deterministic across machines.
  */
-export function buildEvidence({ url, title, snapshot, page, screenshotPath = null, capturedAt = new Date().toISOString() }) {
+export function buildEvidence({ url, title, snapshot, page, runtime, screenshotPath = null, capturedAt = new Date().toISOString() }) {
   const bodyText = normalizeText(snapshot?.text)
   const evidence = {
     captured_at: capturedAt,
@@ -53,6 +65,13 @@ export function buildEvidence({ url, title, snapshot, page, screenshotPath = nul
       resource_count: Number(page?.resource_count ?? 0),
       resource_urls: listOf(page?.resource_urls, 40),
       selectors: listOf(page?.selectors, 40),
+    },
+    runtime: {
+      telemetry_available: runtime?.telemetry_available ?? null,
+      console_errors: recordList(runtime?.console_errors),
+      console_warnings: recordList(runtime?.console_warnings),
+      exceptions: recordList(runtime?.exceptions),
+      network_failures: recordList(runtime?.network_failures),
     },
   }
   evidence.fingerprint = digest({
@@ -120,6 +139,22 @@ export function evaluateChecks(evidence, options = {}, baseline = null) {
   checks.push(evidence.page.horizontal_overflow
     ? result('layout.horizontal-overflow', 'layout', 'fail', 'The document is wider than the captured viewport.', { viewport: evidence.page.viewport })
     : result('layout.horizontal-overflow', 'layout', 'pass', 'No horizontal overflow detected at the captured viewport.', { viewport: evidence.page.viewport }))
+  const runtime = evidence.runtime ?? {}
+  if (runtime.telemetry_available === false) {
+    checks.push(result('runtime.telemetry', 'runtime', 'warn', 'Runtime console and network telemetry was unavailable; browser checks are incomplete.', {}))
+  }
+  checks.push(runtime.console_errors?.length
+    ? result('runtime.console-errors', 'runtime', 'fail', `${runtime.console_errors.length} console error(s) were emitted while loading the page.`, { errors: runtime.console_errors })
+    : result('runtime.console-errors', 'runtime', 'pass', 'No console errors were emitted while loading the page.', {}))
+  checks.push(runtime.exceptions?.length
+    ? result('runtime.exceptions', 'runtime', 'fail', `${runtime.exceptions.length} uncaught runtime exception(s) were observed.`, { exceptions: runtime.exceptions })
+    : result('runtime.exceptions', 'runtime', 'pass', 'No uncaught runtime exceptions were observed.', {}))
+  checks.push(runtime.network_failures?.length
+    ? result('runtime.network-failures', 'runtime', 'fail', `${runtime.network_failures.length} network request(s) failed or returned HTTP 4xx/5xx.`, { failures: runtime.network_failures })
+    : result('runtime.network-failures', 'runtime', 'pass', 'No failed network requests or HTTP 4xx/5xx responses were observed.', {}))
+  if (runtime.console_warnings?.length) {
+    checks.push(result('runtime.console-warnings', 'runtime', 'warn', `${runtime.console_warnings.length} console warning(s) were emitted while loading the page.`, { warnings: runtime.console_warnings }))
+  }
   for (const text of requiredText) checks.push(body.toLocaleLowerCase().includes(text.toLocaleLowerCase())
     ? result(`expect.text:${text}`, 'contract', 'pass', `Required text is present: “${text}”.`, { text })
     : result(`expect.text:${text}`, 'contract', 'fail', `Required text is missing: “${text}”.`, { text }))

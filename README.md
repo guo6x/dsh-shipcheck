@@ -21,6 +21,7 @@ The first version checks:
 - horizontal overflow at the captured viewport
 - required/forbidden text and required CSS selectors
 - structural regressions against an explicit named baseline
+- browser runtime failures: console errors, uncaught exceptions, and failed/HTTP 4xx-5xx requests
 
 Every failure includes concrete evidence. A baseline is only written by the explicit `shipcheck_baseline` tool; a normal run never changes the saved baseline.
 
@@ -66,7 +67,7 @@ No API key, cloud dashboard, embedding service, or automatic project write is re
 
 - This is a release gate, not a full visual regression lab; the first baseline compares stable structure and text drift, not pixel-perfect screenshots across operating systems.
 - The first release does not yet score the page with dsh-palate principles; it stores the evidence shape needed for that integration.
-- JavaScript console and network-status capture will be added after the evidence format is proven; the current resource list is diagnostic, not a claim that every request succeeded.
+- Runtime telemetry uses the browser's CDP events. If the companion browser does not expose that capability, Shipcheck reports an explicit warning instead of pretending the runtime is clean.
 - A passing automated run still needs human review for product semantics, content quality, and intentional exceptions.
 
 ## Develop

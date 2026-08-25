@@ -16,15 +16,18 @@ const evidence = buildEvidence({
   title: 'Shipcheck demo',
   snapshot: { text: 'Shipcheck demo Release ready', links: [{}, {}], buttons: 2, inputs: 1, elements: [{}, {}] },
   page: { h1: ['Shipcheck demo'], h2_count: 2, images: 1, images_missing_alt: [], unlabeled_controls: [], links_missing_name: [], horizontal_overflow: false, viewport: { width: 1280, height: 720, scroll_width: 1280 }, resource_count: 3, resource_urls: ['http://localhost:3000/app.js'], selectors: ['main'] },
+  runtime: { telemetry_available: true, console_errors: [], console_warnings: [], exceptions: [], network_failures: [] },
   screenshotPath: 'C:/tmp/shipcheck.png',
 })
 const report = evaluateChecks(evidence, { required_text: ['Release ready'], required_selectors: ['main'] })
 check('checks: healthy page passes', report.passed && report.summary.failed === 0, JSON.stringify(report.summary))
 check('checks: accessibility evidence retained', report.checks.some(item => item.id === 'a11y.image-alt' && item.status === 'pass'))
-const bad = buildEvidence({ url: evidence.url, title: '', snapshot: { text: 'broken', links: [], buttons: 0, inputs: 0, elements: [] }, page: { h1: [], images: 1, images_missing_alt: ['hero.png'], unlabeled_controls: ['<button>'], links_missing_name: ['http://localhost/'], horizontal_overflow: true, viewport: { width: 375, height: 667, scroll_width: 920 }, selectors: [] } })
+check('runtime: healthy page has clean browser telemetry', report.checks.some(item => item.id === 'runtime.console-errors' && item.status === 'pass') && report.checks.some(item => item.id === 'runtime.network-failures' && item.status === 'pass'))
+const bad = buildEvidence({ url: evidence.url, title: '', snapshot: { text: 'broken', links: [], buttons: 0, inputs: 0, elements: [] }, page: { h1: [], images: 1, images_missing_alt: ['hero.png'], unlabeled_controls: ['<button>'], links_missing_name: ['http://localhost/'], horizontal_overflow: true, viewport: { width: 375, height: 667, scroll_width: 920 }, selectors: [] }, runtime: { telemetry_available: true, console_errors: [{ source: 'console', type: 'error', message: 'fetch failed' }], console_warnings: [], exceptions: [{ source: 'runtime', type: 'exception', message: 'boom' }], network_failures: [{ source: 'network', type: 'http', message: 'HTTP 500', status: 500, url: 'http://localhost/api' }] } })
 const badReport = evaluateChecks(bad, { required_text: ['Release ready'] })
 check('checks: broken page fails', !badReport.passed && badReport.summary.failed >= 6, JSON.stringify(badReport.summary))
 check('checks: report identifies concrete missing image', badReport.checks.find(item => item.id === 'a11y.image-alt')?.evidence.images[0] === 'hero.png')
+check('runtime: report identifies console, exception, and network failures', badReport.checks.some(item => item.id === 'runtime.console-errors' && item.status === 'fail') && badReport.checks.some(item => item.id === 'runtime.exceptions' && item.status === 'fail') && badReport.checks.some(item => item.id === 'runtime.network-failures' && item.status === 'fail'))
 check('checks: browser expression is self-contained', pageInspectionExpression().includes('horizontal_overflow') && pageInspectionExpression().includes('images_missing_alt'))
 const changed = evaluateChecks(evidence, { baseline_requested: true }, { name: 'demo', evidence: { ...evidence, title: 'Old title' } })
 check('baseline: title regression is a failure', changed.status === 'failed' && changed.checks.some(item => item.id === 'baseline.title' && item.status === 'fail'))
