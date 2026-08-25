@@ -37,6 +37,7 @@ Web 面板提供同样的本地闭环：侧边栏点 `🚢`，输入开发服务
 ## 90 秒安装体验
 
 ```sh
+dsh plugin --profile web add github:guo6x/dsh-pilot
 dsh plugin --profile web add github:guo6x/dsh-shipcheck
 ```
 
@@ -59,7 +60,7 @@ shipcheck/
 └── reports/         # 最近 JSON 报告，最多保留 100 条
 ```
 
-不需要 API key、云端面板、embedding 服务，也不需要自动写项目。插件会把 `dsh-pilot` 作为浏览器运行时依赖安装。
+不需要 API key、云端面板、embedding 服务，也不需要自动写项目。`dsh-pilot` 作为同一 profile 的配套插件单独安装，这是因为 DSH 会阻止插件依赖里再嵌套 GitHub 仓库；如果缺少它，Shipcheck 会明确提示安装命令。
 
 ## 诚实边界
 

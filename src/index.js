@@ -8,7 +8,6 @@
 import { join } from 'node:path'
 import { homedir } from 'node:os'
 import { mkdir } from 'node:fs/promises'
-import { PilotPool, saveScreenshot } from 'dsh-pilot'
 import { buildEvidence, evaluateChecks, pageInspectionExpression, renderCheckSummary } from './checks.js'
 import { ShipcheckStore } from './store.js'
 
@@ -19,6 +18,14 @@ const LOOPBACKS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1'])
 
 function dshHome() {
   return process.env.DSH_HOME ?? join(homedir(), '.dsh')
+}
+
+async function loadPilot() {
+  try {
+    return await import('dsh-pilot')
+  } catch {
+    throw new Error('shipcheck: dsh-pilot is required for a real browser run; install github:guo6x/dsh-pilot in the same DSH profile')
+  }
 }
 
 function readBody(req) {
@@ -49,7 +56,8 @@ const strings = description => ({ type: 'array', items: { type: 'string' }, desc
 
 export class ShipcheckRuntime {
   constructor({ store = new ShipcheckStore(join(dshHome(), 'shipcheck')) } = {}) {
-    this.pool = new PilotPool()
+    this.pool = null
+    this.pilotModule = null
     this.store = store
     this.last = null
   }
@@ -58,6 +66,8 @@ export class ShipcheckRuntime {
     const url = typeof args.url === 'string' ? args.url.trim() : ''
     if (!/^https?:\/\//.test(url)) throw new Error('shipcheck: url must be an http(s) URL')
     const nameValue = typeof args.name === 'string' && args.name.trim() ? args.name.trim() : new URL(url).hostname
+    this.pilotModule ??= await loadPilot()
+    this.pool ??= new this.pilotModule.PilotPool()
     const pilot = this.pool.for(exec.agent?.session?.id ?? 'shipcheck')
     const started = Date.now()
     let snapshot
@@ -73,7 +83,7 @@ export class ShipcheckRuntime {
       page = inspected.value
       const artifactDir = join(dshHome(), 'shipcheck', 'artifacts')
       await mkdir(artifactDir, { recursive: true })
-      const shot = await saveScreenshot(pilot, join(artifactDir, `${Date.now()}-${nameValue.replace(/[^a-z0-9_-]+/gi, '-').slice(0, 48)}.png`))
+      const shot = await this.pilotModule.saveScreenshot(pilot, join(artifactDir, `${Date.now()}-${nameValue.replace(/[^a-z0-9_-]+/gi, '-').slice(0, 48)}.png`))
       screenshotPath = shot.path
     } catch (error) {
       navigationError = String(error.message ?? error)
@@ -111,7 +121,7 @@ export class ShipcheckRuntime {
   }
 
   async dispose() {
-    await this.pool.disposeAll()
+    if (this.pool !== null) await this.pool.disposeAll()
   }
 }
 

@@ -33,7 +33,7 @@ async function request(route, url, remoteAddress, method = 'GET') {
 
 try {
   process.env.DSH_HOME = home
-  const { apply, inject, name } = await import('../lib/index.js')
+  const { apply, inject, name, ShipcheckRuntime } = await import('../lib/index.js')
   check('host metadata is correct', name === 'dsh-shipcheck' && JSON.stringify(inject) === JSON.stringify(['webServer', 'tools']))
   apply(context())
   check('registers the three release-check tools', registeredTools.size === 3 && [...expectedTools].every(tool => registeredTools.has(tool)))
@@ -41,6 +41,10 @@ try {
   check('registers loopback prefix route', registeredRoutes.length === 1 && registeredRoutes[0].path === '/dsh-shipcheck')
   const history = await registeredTools.get('shipcheck_history').execute({ limit: 12 })
   check('history tool starts empty and is safe', Array.isArray(history) && history.length === 0)
+  const runtime = new ShipcheckRuntime()
+  await assert.rejects(runtime.run({ url: 'http://127.0.0.1:1/' }), /dsh-pilot is required/)
+  await runtime.dispose()
+  check('missing browser companion fails with install guidance', true)
   const state = await request(registeredRoutes[0], '/dsh-shipcheck/state', '127.0.0.1')
   check('state route returns local JSON', state.status === 200 && Array.isArray(state.body.history))
   const remote = await request(registeredRoutes[0], '/dsh-shipcheck/state', '203.0.113.10')

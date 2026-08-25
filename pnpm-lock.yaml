@@ -7,10 +7,6 @@ settings:
 importers:
 
   .:
-    dependencies:
-      dsh-pilot:
-        specifier: github:guo6x/dsh-pilot
-        version: https://codeload.github.com/guo6x/dsh-pilot/tar.gz/dff236a30a36f3939dd8577023f8a3040448e0f4
     devDependencies:
       esbuild:
         specifier: ^0.25.12
@@ -174,11 +170,6 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  dsh-pilot@https://codeload.github.com/guo6x/dsh-pilot/tar.gz/dff236a30a36f3939dd8577023f8a3040448e0f4:
-    resolution: {gitHosted: true, integrity: sha512-1vBBx0Sd1PHR51nrutONodLebAaNugcLGHRVZi4fPs7EL9DdweQEDYtDuC0NHGlOu1bMN5s5gNntJPz12oFVrQ==, tarball: https://codeload.github.com/guo6x/dsh-pilot/tar.gz/dff236a30a36f3939dd8577023f8a3040448e0f4}
-    version: 0.7.1
-    engines: {node: '>=22'}
-
   esbuild@0.25.12:
     resolution: {integrity: sha512-bbPBYYrtZbkt6Os6FiTLCTFxvq4tt3JKall1vRwshA3fdVztsLAatFaZobhkBC8/BrPetoa0oksYoKXoG4ryJg==}
     engines: {node: '>=18'}
@@ -263,8 +254,6 @@ snapshots:
 
   '@esbuild/win32-x64@0.25.12':
     optional: true
-
-  dsh-pilot@https://codeload.github.com/guo6x/dsh-pilot/tar.gz/dff236a30a36f3939dd8577023f8a3040448e0f4: {}
 
   esbuild@0.25.12:
     optionalDependencies:

@@ -37,6 +37,7 @@ The Web panel adds the same local-first flow: paste a development URL, click **�
 ## Install and run in 90 seconds
 
 ```sh
+dsh plugin --profile web add github:guo6x/dsh-pilot
 dsh plugin --profile web add github:guo6x/dsh-shipcheck
 ```
 
@@ -59,7 +60,7 @@ shipcheck/
 └── reports/         # recent JSON reports, capped at 100
 ```
 
-No API key, cloud dashboard, embedding service, or automatic project write is required. `dsh-pilot` is installed as the browser runtime dependency.
+No API key, cloud dashboard, embedding service, or automatic project write is required. `dsh-pilot` is a separate profile-level companion because DSH blocks GitHub repositories nested inside plugin dependencies; Shipcheck gives a clear error if it is missing.
 
 ## Honest limits
 

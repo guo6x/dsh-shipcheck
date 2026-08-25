@@ -22,9 +22,6 @@
     "bundle": { "patch": "./cordis.patch.yml" },
     "client": { "platform": "web", "inject": [], "immediately": false }
   },
-  "dependencies": {
-    "dsh-pilot": "github:guo6x/dsh-pilot"
-  },
   "devDependencies": {
     "esbuild": "^0.25.12"
   },
