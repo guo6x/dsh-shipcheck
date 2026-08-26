@@ -2,6 +2,14 @@
 
 All notable changes to dsh-shipcheck.
 
+## [0.4.0] - 2026-08-26
+
+### Added
+
+- `shipcheck_flow` for bounded real-browser journeys with navigate, click, fill, press, wait, wait-for, and assert steps.
+- Per-step screenshots, redacted input evidence, stop-on-failure behavior, and final-page acceptance checks.
+- Web panel flow mode with editable JSON steps and a local `/dsh-shipcheck/flow` endpoint.
+
 ## [0.3.0] - 2026-08-26
 
 ### Added

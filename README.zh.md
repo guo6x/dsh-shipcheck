@@ -31,10 +31,11 @@
 |---|---|
 | `shipcheck_run` | 用真实浏览器检查 URL，对比基线，保存截图和 JSON 报告 |
 | `shipcheck_matrix` | 把 1–20 个 URL 作为一次发布门禁检查，保留每个路由的截图、报告、失败证据和独立基线 |
+| `shipcheck_flow` | 用真实浏览器执行一段用户流程，保存每一步截图、断言结果和脱敏证据 |
 | `shipcheck_baseline` | 显式把人工确认过的页面保存为命名结构基线 |
 | `shipcheck_history` | 查看最近报告及通过/失败摘要 |
 
-Web 面板提供同样的本地闭环：侧边栏点 `🚢`，输入开发服务器地址，点“验收”，查看状态、失败证据、截图路径和历史记录。
+Web 面板提供同样的本地闭环：侧边栏点 `🚢`，选择“单页”“多路由”或“流程”，查看状态、失败证据、截图路径和历史记录。
 
 ## 90 秒安装体验
 
@@ -58,6 +59,12 @@ dsh plugin --profile web add github:guo6x/dsh-shipcheck
 > 用 `shipcheck_matrix` 检查 `http://127.0.0.1:3000/`、`http://127.0.0.1:3000/login` 和 `http://127.0.0.1:3000/checkout`，矩阵名为 `checkout-release`。要求每个页面出现“Checkout”，禁止出现“Something went wrong”，并告诉我哪个路由失败以及对应的截图和 JSON 报告路径。
 
 矩阵会在同一个真实浏览器会话中按顺序检查各路由。每个路由都有独立报告，并使用 `<矩阵名>/<路由名>` 形式的基线名，因此 login 页面不会覆盖 checkout 页面的基线；最后再生成一份汇总所有检查项的矩阵报告。
+
+如果要验收真实用户流程，可以让 agent 执行：
+
+> 从 `http://127.0.0.1:3000/login` 开始，用 `shipcheck_flow` 执行 `checkout-login` 流程：填写 Email 和 Password，点击 `#submit`，等待 URL 包含 `/dashboard`，断言页面出现“Logged in”，最后告诉我流程是否通过。不要修改文件。
+
+流程最多支持 30 个有序步骤：`navigate`、`click`、`fill`、`press`、`wait`、`wait_for` 和 `assert`。每一步都会截图，失败后立即停止。填入的值只用于当前浏览器，保存到报告时会替换成 `[redacted]`。如果步骤点击提交按钮，仍可能改变被测应用状态，因此只对已获授权的环境提供明确提交步骤。
 
 证据默认保存在 `$DSH_HOME/shipcheck/`：
 
@@ -86,6 +93,6 @@ pnpm install
 pnpm test
 ```
 
-核心测试使用伪造页面证据，不依赖浏览器；真实浏览器路径在 DSH Web profile 中调用 `shipcheck_run` 或 `shipcheck_matrix` 时运行。
+核心测试使用伪造页面证据，不依赖浏览器；真实浏览器路径在 DSH Web profile 中调用 `shipcheck_run`、`shipcheck_matrix` 或 `shipcheck_flow` 时运行。
 
 MIT 协议。

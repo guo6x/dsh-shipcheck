@@ -31,10 +31,11 @@ Every failure includes concrete evidence. A baseline is only written by the expl
 |---|---|
 | `shipcheck_run` | Inspect a URL in a real browser, run checks, compare a baseline, save a screenshot and JSON report |
 | `shipcheck_matrix` | Inspect 1-20 URLs as one release gate; keep route-level screenshots, reports, failures, and baselines |
+| `shipcheck_flow` | Execute a bounded user journey with real browser actions, step screenshots, assertions, and redacted evidence |
 | `shipcheck_baseline` | Explicitly capture a reviewed URL as a named structural baseline |
 | `shipcheck_history` | List recent reports and their pass/fail summaries |
 
-The Web panel adds the same local-first flow: paste a development URL, click **验收**, then inspect the status, failed checks, screenshot path, and recent history.
+The Web panel adds the same local-first flow: choose **单页**, **多路由**, or **流程**, then inspect the status, failed checks, screenshots, and recent history.
 
 ## Install and run in 90 seconds
 
@@ -58,6 +59,12 @@ For a release with several important routes, ask:
 > Run `shipcheck_matrix` for `http://127.0.0.1:3000/`, `http://127.0.0.1:3000/login`, and `http://127.0.0.1:3000/checkout` as matrix `checkout-release`. Require `Checkout` on every route, forbid `Something went wrong`, and report which route failed with its screenshot and JSON report path.
 
 The matrix runs routes sequentially in one real browser session. Each route is saved as its own report and uses a generated baseline name under `<matrix-name>/<route-key>`, so the login page cannot overwrite the checkout page's baseline. The matrix report then aggregates all checks and includes a route-by-route summary.
+
+For a real user journey, ask:
+
+> Run `shipcheck_flow` from `http://127.0.0.1:3000/login` as `checkout-login`. Fill the Email and Password fields, click `#submit`, wait for the URL to include `/dashboard`, assert that `Logged in` is visible, and tell me whether the journey passed. Do not modify files.
+
+The flow tool accepts up to 30 ordered steps (`navigate`, `click`, `fill`, `press`, `wait`, `wait_for`, and `assert`). It captures evidence after every step and stops at the first failure. Filled values are used in the live browser but are replaced with `[redacted]` in the saved report. Clicking a submit button can still change the inspected application's state, so only provide explicit steps for an environment where that action is authorized.
 
 The plugin stores local evidence under `$DSH_HOME/shipcheck/`:
 
@@ -86,6 +93,6 @@ pnpm install
 pnpm test
 ```
 
-The core tests use fake evidence and do not require a browser. The real browser path is exercised when `shipcheck_run` or `shipcheck_matrix` is used in a DSH Web profile.
+The core tests use fake evidence and do not require a browser. The real browser path is exercised when `shipcheck_run`, `shipcheck_matrix`, or `shipcheck_flow` is used in a DSH Web profile.
 
 MIT licensed.

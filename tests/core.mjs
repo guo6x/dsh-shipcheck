@@ -53,13 +53,23 @@ const fakePilot = {
     currentUrl = url
     return { title: url.endsWith('/broken') ? 'Broken route' : 'Healthy route', text: url.endsWith('/broken') ? 'broken' : 'Release ready', links: [], buttons: 0, inputs: 0, elements: [] }
   },
+  async click() {
+    currentUrl = 'http://127.0.0.1:3000/success'
+    return { ok: true, tag: 'button', text: 'Submit', url: currentUrl, title: 'Success route' }
+  },
+  async fill(fields) { return { ok: true, filled: fields.map(field => ({ label: field.label, tag: 'input', type: 'text' })), failed: [] } },
+  async press(key) { return { ok: true, key } },
   async wait() {},
+  async waitFor(options) { return { ok: true, waited: 0, url: currentUrl, title: 'Success route', textMatched: Boolean(options.text), selectorMatched: true, urlMatched: Boolean(options.urlIncludes) } },
+  async assert(options) { return { ok: options.text === 'Checkout complete', url: currentUrl, title: 'Success route', textMatched: options.text === 'Checkout complete', selectorMatched: true, urlMatched: true } },
   async snapshot() {
-    return { title: currentUrl.endsWith('/broken') ? 'Broken route' : 'Healthy route', text: currentUrl.endsWith('/broken') ? 'broken' : 'Release ready', links: [], buttons: 0, inputs: 0, elements: [] }
+    const success = currentUrl.endsWith('/success')
+    return { title: success ? 'Success route' : currentUrl.endsWith('/broken') ? 'Broken route' : 'Healthy route', text: success ? 'Checkout complete' : currentUrl.endsWith('/broken') ? 'broken' : 'Release ready', links: [], buttons: 0, inputs: 0, elements: [] }
   },
   async evalJs() {
     const broken = currentUrl.endsWith('/broken')
-    return { ok: true, value: { h1: broken ? [] : ['Release ready'], h2_count: 0, images: 0, images_missing_alt: [], unlabeled_controls: [], links_missing_name: [], horizontal_overflow: false, viewport: { width: 1280, height: 720, scroll_width: 1280 }, resource_count: 0, resource_urls: [], selectors: broken ? [] : ['main'] } }
+    const success = currentUrl.endsWith('/success')
+    return { ok: true, value: { h1: broken ? [] : [success ? 'Checkout complete' : 'Release ready'], h2_count: 0, images: 0, images_missing_alt: [], unlabeled_controls: [], links_missing_name: [], horizontal_overflow: false, viewport: { width: 1280, height: 720, scroll_width: 1280 }, resource_count: 0, resource_urls: [], selectors: broken ? [] : ['main'] } }
   },
 }
 matrixRuntime.pilotModule = {
@@ -74,6 +84,20 @@ check('matrix: aggregates independent route results', matrix.kind === 'matrix' &
 check('matrix: preserves route reports, screenshots, and namespaced baselines', matrix.evidence.routes.every(route => typeof route.report_id === 'string' && typeof route.screenshot_path === 'string' && route.baseline.startsWith('checkout/')) && new Set(matrix.evidence.routes.map(route => route.baseline)).size === 2)
 check('matrix: flattened checks retain route evidence', matrix.checks.some(check => check.id.startsWith('route:01-') && check.evidence.report_id) && matrix.checks.some(check => check.status === 'fail' && check.evidence.route.includes('broken')))
 check('matrix: saves child reports plus aggregate history', (await matrixRuntime.history(10)).length === 3)
+const flow = await matrixRuntime.flow({
+  url: 'http://127.0.0.1:3000/',
+  name: 'checkout-flow',
+  steps: [
+    { action: 'fill', fields: [{ label: 'Email', value: 'secret@example.com' }] },
+    { action: 'click', selector: 'button' },
+    { action: 'assert', text: 'Checkout complete', url_includes: '/success' },
+  ],
+  required_text: ['Checkout complete'],
+})
+const flowJson = JSON.stringify(flow)
+check('flow: executes a successful user journey', flow.kind === 'flow' && flow.status === 'passed' && flow.evidence.flow.requested_steps === 4 && flow.evidence.flow.executed_steps === 4)
+check('flow: captures every step and redacts field values', flow.evidence.steps.every(step => typeof step.screenshot_path === 'string') && flow.evidence.steps[1].input.fields[0].value === '[redacted]' && !flowJson.includes('secret@example.com'))
+check('flow: stores final-page acceptance evidence', flow.evidence.final.body_text.includes('Checkout complete') && flow.checks.some(check => check.id === 'flow.step:3' && check.status === 'pass'))
 await matrixRuntime.dispose()
 
 console.log(`\n${failed === 0 ? 'ALL PASS' : `${failed} FAILURES`}`)
