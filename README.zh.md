@@ -1,6 +1,6 @@
 # 🚢 dsh-shipcheck —— 交付前先拿证据
 
-[![ci](https://github.com/guo6x/dsh-shipcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/guo6x/dsh-shipcheck/actions/workflows/ci.yml) · [English](README.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件
+[![Awesome DSH Plugin](https://awesome-dsh-plugin.com/badge.svg)](https://awesome-dsh-plugin.com) [![ci](https://github.com/guo6x/dsh-shipcheck/actions/workflows/ci.yml/badge.svg)](https://github.com/guo6x/dsh-shipcheck/actions/workflows/ci.yml) · [English](README.md) · [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness) 插件
 
 > 前端不是因为 agent 说“看起来不错”就能交付；真实浏览器跑出证据，才算完成验收。
 
