@@ -30,6 +30,7 @@
 | 工具 | 作用 |
 |---|---|
 | `shipcheck_run` | 用真实浏览器检查 URL，对比基线，保存截图和 JSON 报告 |
+| `shipcheck_matrix` | 把 1–20 个 URL 作为一次发布门禁检查，保留每个路由的截图、报告、失败证据和独立基线 |
 | `shipcheck_baseline` | 显式把人工确认过的页面保存为命名结构基线 |
 | `shipcheck_history` | 查看最近报告及通过/失败摘要 |
 
@@ -52,6 +53,12 @@ dsh plugin --profile web add github:guo6x/dsh-shipcheck
 
 > 用 `shipcheck_baseline` 把当前 checkout 页面保存为 `checkout` 基线，再运行一次 `shipcheck_run`，如果有结构回归，说明变化和证据路径。
 
+如果一次发布包含多个关键页面，可以让 agent 执行：
+
+> 用 `shipcheck_matrix` 检查 `http://127.0.0.1:3000/`、`http://127.0.0.1:3000/login` 和 `http://127.0.0.1:3000/checkout`，矩阵名为 `checkout-release`。要求每个页面出现“Checkout”，禁止出现“Something went wrong”，并告诉我哪个路由失败以及对应的截图和 JSON 报告路径。
+
+矩阵会在同一个真实浏览器会话中按顺序检查各路由。每个路由都有独立报告，并使用 `<矩阵名>/<路由名>` 形式的基线名，因此 login 页面不会覆盖 checkout 页面的基线；最后再生成一份汇总所有检查项的矩阵报告。
+
 证据默认保存在 `$DSH_HOME/shipcheck/`：
 
 ```text
@@ -60,6 +67,8 @@ shipcheck/
 ├── baselines/       # 显式保存的命名基线
 └── reports/         # 最近 JSON 报告，最多保留 100 条
 ```
+
+因此 20 个路由最多会产生 21 条报告：每个路由一条，加一条矩阵汇总报告。
 
 不需要 API key、云端面板、embedding 服务，也不需要自动写项目。`dsh-pilot` 作为同一 profile 的配套插件单独安装，这是因为 DSH 会阻止插件依赖里再嵌套 GitHub 仓库；如果缺少它，Shipcheck 会明确提示安装命令。
 
@@ -77,6 +86,6 @@ pnpm install
 pnpm test
 ```
 
-核心测试使用伪造页面证据，不依赖浏览器；真实浏览器路径在 DSH Web profile 中调用 `shipcheck_run` 时运行。
+核心测试使用伪造页面证据，不依赖浏览器；真实浏览器路径在 DSH Web profile 中调用 `shipcheck_run` 或 `shipcheck_matrix` 时运行。
 
 MIT 协议。

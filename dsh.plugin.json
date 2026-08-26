@@ -1,7 +1,7 @@
 {
   "name": "dsh-shipcheck",
   "description": "Evidence-first frontend release checks: real browser inspection, visual baselines, and reproducible reports. Uses dsh-pilot when installed.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "entry": {
     "name": "dsh-shipcheck",
     "inject": []

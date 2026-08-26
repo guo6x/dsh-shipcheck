@@ -178,6 +178,51 @@ function object(properties, required = []) {
 const string = description => ({ type: 'string', description })
 const strings = description => ({ type: 'array', items: { type: 'string' }, description })
 
+function matrixRouteKey(url, index) {
+  const parsed = new URL(url)
+  const host = parsed.host.replace(/[^a-z0-9_-]+/gi, '-').replace(/^-+|-+$/g, '') || 'host'
+  const path = `${parsed.pathname === '/' ? 'home' : parsed.pathname}${parsed.search}`
+    .replace(/[^a-z0-9_-]+/gi, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 44) || 'route'
+  return `${String(index + 1).padStart(2, '0')}-${host}-${path}`
+}
+
+function matrixUrls(value) {
+  if (!Array.isArray(value) || value.length < 1 || value.length > 20) {
+    throw new Error('shipcheck: urls must contain between 1 and 20 http(s) URLs')
+  }
+  return value.map((value, index) => {
+    const url = typeof value === 'string' ? value.trim() : ''
+    if (!/^https?:\/\//.test(url)) throw new Error(`shipcheck: urls[${index}] must be an http(s) URL`)
+    try { new URL(url) } catch { throw new Error(`shipcheck: urls[${index}] must be a valid URL`) }
+    return url
+  })
+}
+
+function renderMatrixSummary(report) {
+  if (!report) return 'No shipcheck matrix report yet.'
+  const routes = report.evidence?.routes ?? []
+  const routeSummary = report.route_summary ?? { total: routes.length, passed: 0, failed: routes.length }
+  const lines = [
+    `${report.status === 'passed' ? 'PASS' : 'FAIL'} ${routeSummary.passed}/${routeSummary.total} routes passed — ${report.name}`,
+    `Report: ${report.id}`,
+  ]
+  for (const route of routes) {
+    const failures = (route.failed_checks ?? []).slice(0, 2).map(check => `[${check.status}] ${check.message}`).join(' ')
+    lines.push(`${route.status === 'passed' ? 'PASS' : 'FAIL'} ${route.route} — ${route.url}${failures ? ` — ${failures}` : ''}`)
+  }
+  return lines.join('\n')
+}
+
+function renderHistoryLine(report) {
+  if (report.kind === 'matrix') {
+    const routes = report.route_summary ?? { passed: 0, total: 0 }
+    return `${report.status.toUpperCase()} ${report.name} — ${routes.passed}/${routes.total} routes passed — ${report.summary.failed} failed / ${report.summary.warnings} warnings`
+  }
+  return `${report.status.toUpperCase()} ${report.name} — ${report.summary.failed} failed / ${report.summary.warnings} warnings — ${report.url}`
+}
+
 export class ShipcheckRuntime {
   constructor({ store = new ShipcheckStore(join(dshHome(), 'shipcheck')) } = {}) {
     this.pool = null
@@ -227,7 +272,7 @@ export class ShipcheckRuntime {
     const checks = navigationError === null
       ? evaluateChecks(evidence, { ...args, baseline_requested: Boolean(args.baseline ?? nameValue) }, baseline)
       : { status: 'failed', passed: false, checks: [{ id: 'browser.navigate', category: 'availability', status: 'fail', message: `Browser could not load the page: ${navigationError}`, evidence: { url } }], summary: { total: 1, passed: 0, warnings: 0, failed: 1 } }
-    const report = await this.store.saveReport({
+    const reportData = {
       name: nameValue,
       url,
       baseline: baseline ? (args.baseline ?? nameValue) : null,
@@ -237,6 +282,100 @@ export class ShipcheckRuntime {
       summary: checks.summary,
       checks: checks.checks,
       evidence,
+    }
+    if (args.matrix !== undefined) reportData.matrix = args.matrix
+    const report = await this.store.saveReport(reportData)
+    this.last = report
+    return report
+  }
+
+  async matrix(args = {}, exec = {}) {
+    const urls = matrixUrls(args.urls)
+    const matrixName = typeof args.name === 'string' && args.name.trim() ? args.name.trim() : new URL(urls[0]).hostname
+    const baselineRoot = typeof args.baseline === 'string' && args.baseline.trim() ? args.baseline.trim() : matrixName
+    this.pilotModule ??= await loadPilot()
+    this.pool ??= new this.pilotModule.PilotPool()
+    const started = Date.now()
+    const routes = []
+
+    for (let index = 0; index < urls.length; index++) {
+      const url = urls[index]
+      const route = matrixRouteKey(url, index)
+      const routeName = `${matrixName}/${route}`
+      const routeBaseline = `${baselineRoot}/${route}`
+      try {
+        const report = await this.run({
+          ...args,
+          url,
+          name: routeName,
+          baseline: routeBaseline,
+          matrix: { name: matrixName, index: index + 1, total: urls.length, route, baseline: routeBaseline },
+        }, exec)
+        routes.push({ report, index: index + 1, route, name: routeName, baseline: routeBaseline, url })
+      } catch (error) {
+        const message = String(error?.message ?? error)
+        routes.push({
+          report: null,
+          index: index + 1,
+          route,
+          name: routeName,
+          baseline: routeBaseline,
+          url,
+          status: 'failed',
+          summary: { total: 1, passed: 0, warnings: 0, failed: 1 },
+          failed_checks: [{ id: 'matrix.route', category: 'availability', status: 'fail', message, evidence: { url } }],
+        })
+      }
+    }
+
+    const routeEvidence = routes.map(item => {
+      const report = item.report
+      return {
+        index: item.index,
+        route: item.route,
+        name: item.name,
+        baseline: item.baseline,
+        url: item.url,
+        report_id: report?.id ?? null,
+        status: report?.status ?? item.status,
+        summary: report?.summary ?? item.summary,
+        screenshot_path: report?.evidence?.screenshot_path ?? null,
+        failed_checks: report
+          ? report.checks.filter(check => check.status !== 'pass').slice(0, 8)
+          : item.failed_checks,
+      }
+    })
+    const checks = routes.flatMap(item => {
+      const routeChecks = item.report?.checks ?? item.failed_checks ?? []
+      return routeChecks.map(check => ({
+        ...check,
+        id: `route:${item.route}::${check.id}`,
+        message: `[${item.route}] ${check.message}`,
+        evidence: { ...check.evidence, route: item.route, url: item.url, report_id: item.report?.id ?? null },
+      }))
+    })
+    const summary = {
+      total: checks.length,
+      passed: checks.filter(check => check.status === 'pass').length,
+      warnings: checks.filter(check => check.status === 'warn').length,
+      failed: checks.filter(check => check.status === 'fail').length,
+    }
+    const routeSummary = {
+      total: routes.length,
+      passed: routes.filter(item => (item.report?.status ?? item.status) === 'passed').length,
+      failed: routes.filter(item => (item.report?.status ?? item.status) !== 'passed').length,
+    }
+    const report = await this.store.saveReport({
+      kind: 'matrix',
+      name: matrixName,
+      url: `matrix://${matrixName}`,
+      started_at: new Date(started).toISOString(),
+      duration_ms: Date.now() - started,
+      status: routeSummary.failed === 0 ? 'passed' : 'failed',
+      summary,
+      route_summary: routeSummary,
+      checks,
+      evidence: { type: 'matrix', name: matrixName, routes: routeEvidence },
     })
     this.last = report
     return report
@@ -279,12 +418,21 @@ export function apply(ctx) {
         forbidden_text: strings('Optional visible strings that must be absent.'),
         required_selectors: strings('Optional CSS selectors that must exist.'),
       }, ['url']), args => runtime.run(args), value => `${renderCheckSummary(value)}\nReport: ${value.id}\nScreenshot: ${value.evidence.screenshot_path}\n${value.checks.filter(check => check.status !== 'pass').slice(0, 8).map(check => `[${check.status}] ${check.message}`).join('\n')}`),
+      define('shipcheck_matrix', 'Run the same evidence-first release checks across 1-20 URLs in a real browser. Each route gets its own screenshot, JSON report, and namespaced baseline; the returned matrix report shows the overall gate and every route failure with evidence.', object({
+        urls: { type: 'array', minItems: 1, maxItems: 20, items: { type: 'string' }, description: 'One to twenty full http(s) URLs to inspect in order.' },
+        name: string('Optional matrix name; defaults to the first URL hostname.'),
+        baseline: string('Optional baseline namespace; each route uses a separate generated baseline name.'),
+        wait_ms: { type: 'number', description: 'Optional settle time from 0 to 30000 ms, applied to every route.' },
+        required_text: strings('Optional visible strings that must be present on every route.'),
+        forbidden_text: strings('Optional visible strings that must be absent on every route.'),
+        required_selectors: strings('Optional CSS selectors that must exist on every route.'),
+      }, ['urls']), args => runtime.matrix(args), renderMatrixSummary),
       define('shipcheck_baseline', 'Capture a reviewed page as a named shipcheck baseline. Future shipcheck_run calls compare structural evidence and report regressions; this is an explicit write and never modifies the inspected page.', object({
         url: string('Full http(s) URL to inspect.'),
         name: string('Stable project/baseline name.'),
         wait_ms: { type: 'number', description: 'Optional settle time from 0 to 30000 ms.' },
       }, ['url', 'name']), args => runtime.baseline(args), value => `Baseline saved: ${value.name}\nInitial run: ${value.report_id} (${value.status})`),
-      define('shipcheck_history', 'List recent shipcheck reports with their pass/fail summary and evidence paths.', object({ limit: { type: 'number', description: 'Number of recent reports, 1-50; default 12.' } }), args => runtime.history(args.limit), value => value.length ? value.map(report => `${report.status.toUpperCase()} ${report.name} — ${report.summary.failed} failed / ${report.summary.warnings} warnings — ${report.url}`).join('\n') : 'No shipcheck reports yet.'),
+      define('shipcheck_history', 'List recent shipcheck reports with their pass/fail summary and evidence paths.', object({ limit: { type: 'number', description: 'Number of recent reports, 1-50; default 12.' } }), args => runtime.history(args.limit), value => value.length ? value.map(renderHistoryLine).join('\n') : 'No shipcheck reports yet.'),
     ]
     for (const def of defs) ctx.effect(() => tools.register(def), `dsh-shipcheck: tool ${def.name}`)
   }
@@ -301,6 +449,7 @@ export function apply(ctx) {
         if (req.method === 'GET' && suffix === '/state') return sendJson(res, 200, { last: runtime.last, history: await runtime.history(8) })
         if (req.method === 'GET' && suffix === '/history') return sendJson(res, 200, await runtime.history(20))
         if (req.method === 'POST' && suffix === '/run') return sendJson(res, 200, await runtime.run(JSON.parse(await readBody(req) || '{}'), { agent: { session: { id: 'shipcheck-panel' } } }))
+        if (req.method === 'POST' && suffix === '/matrix') return sendJson(res, 200, await runtime.matrix(JSON.parse(await readBody(req) || '{}'), { agent: { session: { id: 'shipcheck-panel' } } }))
         if (req.method === 'POST' && suffix === '/baseline') return sendJson(res, 200, await runtime.baseline(JSON.parse(await readBody(req) || '{}'), { agent: { session: { id: 'shipcheck-panel' } } }))
         return sendJson(res, 404, { error: 'no such endpoint' })
       } catch (error) { return sendJson(res, 400, { error: String(error.message ?? error) }) }

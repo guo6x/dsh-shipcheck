@@ -2,6 +2,14 @@
 
 All notable changes to dsh-shipcheck.
 
+## [0.3.0] - 2026-08-26
+
+### Added
+
+- Multi-route acceptance matrices for checking 1-20 URLs in one release gate.
+- Independent route screenshots, JSON reports, and namespaced baselines with an aggregate matrix report.
+- A local `/dsh-shipcheck/matrix` endpoint for the Web panel and other local clients.
+
 ## [0.2.0] - 2026-08-25
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "dsh-shipcheck",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Evidence-first frontend release checks for DSH: real browser inspection, visual baselines, and reproducible reports.",
   "type": "module",
   "main": "lib/index.js",

@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ShipcheckStore } from '../src/store.js'
 import { buildEvidence, evaluateChecks, pageInspectionExpression } from '../src/checks.js'
+import { ShipcheckRuntime } from '../src/index.js'
 
 let failed = 0
 const check = (label, condition, extra = '') => {
@@ -40,6 +41,40 @@ check('store: baseline survives round trip', (await store.getBaseline('demo'))?.
 const saved = await store.saveReport({ name: 'demo', status: report.status, summary: report.summary, checks: report.checks, evidence })
 check('store: report receives stable id', typeof saved.id === 'string' && saved.id.length > 8)
 check('store: history returns report', (await store.history())[0]?.id === saved.id)
+
+const matrixDir = mkdtempSync(join(tmpdir(), 'dsh-shipcheck-matrix-'))
+const matrixRuntime = new ShipcheckRuntime({ store: new ShipcheckStore(matrixDir) })
+let currentUrl = ''
+const fakePilot = {
+  cdp: { events: new Map(), async call() {} },
+  async withOp(operation) { return operation() },
+  async ensure() {},
+  async navigate(url) {
+    currentUrl = url
+    return { title: url.endsWith('/broken') ? 'Broken route' : 'Healthy route', text: url.endsWith('/broken') ? 'broken' : 'Release ready', links: [], buttons: 0, inputs: 0, elements: [] }
+  },
+  async wait() {},
+  async snapshot() {
+    return { title: currentUrl.endsWith('/broken') ? 'Broken route' : 'Healthy route', text: currentUrl.endsWith('/broken') ? 'broken' : 'Release ready', links: [], buttons: 0, inputs: 0, elements: [] }
+  },
+  async evalJs() {
+    const broken = currentUrl.endsWith('/broken')
+    return { ok: true, value: { h1: broken ? [] : ['Release ready'], h2_count: 0, images: 0, images_missing_alt: [], unlabeled_controls: [], links_missing_name: [], horizontal_overflow: false, viewport: { width: 1280, height: 720, scroll_width: 1280 }, resource_count: 0, resource_urls: [], selectors: broken ? [] : ['main'] } }
+  },
+}
+matrixRuntime.pilotModule = {
+  PilotPool: class {
+    for() { return fakePilot }
+    async disposeAll() {}
+  },
+  async saveScreenshot(_pilot, path) { return { path } },
+}
+const matrix = await matrixRuntime.matrix({ urls: ['http://127.0.0.1:3000/', 'http://127.0.0.1:3000/broken'], name: 'checkout', required_text: ['Release ready'] })
+check('matrix: aggregates independent route results', matrix.kind === 'matrix' && matrix.route_summary.total === 2 && matrix.route_summary.passed === 1 && matrix.route_summary.failed === 1 && matrix.status === 'failed')
+check('matrix: preserves route reports, screenshots, and namespaced baselines', matrix.evidence.routes.every(route => typeof route.report_id === 'string' && typeof route.screenshot_path === 'string' && route.baseline.startsWith('checkout/')) && new Set(matrix.evidence.routes.map(route => route.baseline)).size === 2)
+check('matrix: flattened checks retain route evidence', matrix.checks.some(check => check.id.startsWith('route:01-') && check.evidence.report_id) && matrix.checks.some(check => check.status === 'fail' && check.evidence.route.includes('broken')))
+check('matrix: saves child reports plus aggregate history', (await matrixRuntime.history(10)).length === 3)
+await matrixRuntime.dispose()
 
 console.log(`\n${failed === 0 ? 'ALL PASS' : `${failed} FAILURES`}`)
 process.exit(failed === 0 ? 0 : 1)

@@ -30,6 +30,7 @@ Every failure includes concrete evidence. A baseline is only written by the expl
 | Tool | Purpose |
 |---|---|
 | `shipcheck_run` | Inspect a URL in a real browser, run checks, compare a baseline, save a screenshot and JSON report |
+| `shipcheck_matrix` | Inspect 1-20 URLs as one release gate; keep route-level screenshots, reports, failures, and baselines |
 | `shipcheck_baseline` | Explicitly capture a reviewed URL as a named structural baseline |
 | `shipcheck_history` | List recent reports and their pass/fail summaries |
 
@@ -52,6 +53,12 @@ After a human reviews a healthy page:
 
 > Capture the current checkout page as the `checkout` shipcheck baseline with `shipcheck_baseline`. Then run `shipcheck_run` again and explain any structural regression with the evidence paths.
 
+For a release with several important routes, ask:
+
+> Run `shipcheck_matrix` for `http://127.0.0.1:3000/`, `http://127.0.0.1:3000/login`, and `http://127.0.0.1:3000/checkout` as matrix `checkout-release`. Require `Checkout` on every route, forbid `Something went wrong`, and report which route failed with its screenshot and JSON report path.
+
+The matrix runs routes sequentially in one real browser session. Each route is saved as its own report and uses a generated baseline name under `<matrix-name>/<route-key>`, so the login page cannot overwrite the checkout page's baseline. The matrix report then aggregates all checks and includes a route-by-route summary.
+
 The plugin stores local evidence under `$DSH_HOME/shipcheck/`:
 
 ```text
@@ -60,6 +67,8 @@ shipcheck/
 ├── baselines/       # explicit named baselines
 └── reports/         # recent JSON reports, capped at 100
 ```
+
+A matrix therefore uses up to 21 report entries for 20 routes: one aggregate report plus one report per route.
 
 No API key, cloud dashboard, embedding service, or automatic project write is required. `dsh-pilot` is a separate profile-level companion because DSH blocks GitHub repositories nested inside plugin dependencies; Shipcheck gives a clear error if it is missing.
 
@@ -77,6 +86,6 @@ pnpm install
 pnpm test
 ```
 
-The core tests use fake evidence and do not require a browser. The real browser path is exercised when `shipcheck_run` is used in a DSH Web profile.
+The core tests use fake evidence and do not require a browser. The real browser path is exercised when `shipcheck_run` or `shipcheck_matrix` is used in a DSH Web profile.
 
 MIT licensed.
