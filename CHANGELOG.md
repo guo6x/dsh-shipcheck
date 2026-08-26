@@ -2,6 +2,12 @@
 
 All notable changes to dsh-shipcheck.
 
+## [0.4.1] - 2026-08-26
+
+### Fixed
+
+- Dock the release panel on the right side by default so it no longer covers the browser cockpit or palate controls when multiple panels are open.
+
 ## [0.4.0] - 2026-08-26
 
 ### Added

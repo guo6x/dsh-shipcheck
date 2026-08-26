@@ -5,7 +5,10 @@ export const name = 'dsh-shipcheck'
 export const inject = ['slots']
 
 const panelStyle = {
-  position: 'fixed', top: '4.5rem', left: '21rem', zIndex: 1200, width: 380,
+  // Dock beside the pilot cockpit by default; the palate panel docks below
+  // the cockpit. This keeps all release controls reachable when the panels
+  // are opened together.
+  position: 'fixed', top: '4.5rem', right: '1rem', zIndex: 1200, width: 380,
   maxHeight: 'calc(100vh - 7rem)', overflow: 'auto', borderRadius: 12,
   background: 'rgba(24, 26, 32, 0.97)', border: '1px solid rgba(255,255,255,0.14)',
   boxShadow: '0 12px 40px rgba(0,0,0,0.45)', color: '#e8eaf0',
