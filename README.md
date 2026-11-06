@@ -77,6 +77,8 @@ shipcheck/
 
 A matrix therefore uses up to 21 report entries for 20 routes: one aggregate report plus one report per route.
 
+Baseline filenames combine a readable slug with a SHA-256 digest of the JSON-encoded exact name, separated by a dot so they cannot overlap legacy slug-only filenames. Chinese names, punctuation, letter case, and long matrix names therefore remain independent. Existing baselines are read only when their saved name exactly matches the requested name; reading never rewrites them. If an older version already overwrote a colliding baseline, review that page and explicitly capture it again.
+
 No API key, cloud dashboard, embedding service, or automatic project write is required. `dsh-pilot` is a separate profile-level companion because DSH blocks GitHub repositories nested inside plugin dependencies; Shipcheck gives a clear error if it is missing.
 
 ## Honest limits
