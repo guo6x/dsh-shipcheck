@@ -2,6 +2,13 @@
 
 All notable changes to dsh-shipcheck.
 
+## [Unreleased]
+
+### Fixed
+
+- Keep named baselines independent when Chinese names, punctuation, case, or long matrix names share the same readable slug. Use the exact name's SHA-256 digest for storage, and accept legacy files only when their embedded name matches.
+- Cover baseline collisions, explicit recapture, safe legacy reads, and damaged files against both source and the shipped bundle.
+
 ## [0.4.1] - 2026-08-26
 
 ### Fixed

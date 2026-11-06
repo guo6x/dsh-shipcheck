@@ -27,7 +27,7 @@
   },
   "scripts": {
     "build": "node build.mjs",
-    "test": "node build.mjs && node tests/core.mjs && node tests/plugin-contract.mjs && node tests/client-contract.mjs && pnpm pack --dry-run"
+    "test": "node build.mjs && node tests/core.mjs && node tests/baseline-storage.mjs && node tests/plugin-contract.mjs && node tests/client-contract.mjs && pnpm pack --dry-run"
   },
   "keywords": [
     "dsh",
